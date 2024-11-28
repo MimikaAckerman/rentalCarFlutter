@@ -13,6 +13,9 @@ dependencies:
   shared_preferences: ^2.1.0
   cupertino_icons: ^1.0.8
   http: ^1.1.0
+  cached_network_image: ^3.2.3
+  signature: ^5.5.0
+ 
 
 dev_dependencies:
   flutter_test:
@@ -23,3 +26,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/background.png
+    - assets/opel_corsa.jpg
+    - assets/coche_deportivo.jpg

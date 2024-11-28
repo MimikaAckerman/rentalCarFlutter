@@ -21,6 +21,7 @@ class CarRentalApp extends StatelessWidget {
       routes: {
         '/login': (context) => LoginScreen(),
         '/home': (context) => HomeScreen(),
+        '/register': (context) => RegisterScreen(),
       },
     );
   }

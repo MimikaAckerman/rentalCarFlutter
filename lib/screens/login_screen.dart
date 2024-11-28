@@ -52,53 +52,41 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
-    final url = Uri.parse('https://api-psc-goland.azurewebsites.net/login');
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'username': _emailController.text,
-          'password': _passwordController.text,
-        }),
-      );
+    final response = await http.post(
+      Uri.parse('https://api-psc-goland.azurewebsites.net/login'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'username': _emailController.text,
+        'password': _passwordController.text,
+      }),
+    );
 
-      setState(() {
-        _isLoading = false;
-      });
+    setState(() {
+      _isLoading = false;
+    });
 
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      final responseData = jsonDecode(response.body);
 
-        if (responseData['message'] == 'Login exitoso') {
-          _saveCredentials();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Login Successful!')),
-          );
+      if (responseData['message'] == 'Login exitoso') {
+        // Guardar credenciales si "recordar usuario" está activo
+        _saveCredentials();
 
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => PanelScreen()),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(responseData['message'] ?? 'Error desconocido')),
-          );
-        }
+        // Navegar al Panel
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PanelScreen(username: _emailController.text),
+          ),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  'Error ${response.statusCode}: ${response.reasonPhrase}')),
+          SnackBar(content: Text('Credenciales incorrectas')),
         );
       }
-    } catch (error) {
-      setState(() {
-        _isLoading = false;
-      });
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error de conexión: $error')),
+        SnackBar(content: Text('Error de conexión: ${response.statusCode}')),
       );
     }
   }
@@ -203,14 +191,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                         onPressed: _handleLogin,
                                         child: Text('Login'),
                                       ),
-                                SizedBox(width: 16),
+                                SizedBox(width: 16), // Espacio entre botones
                                 ElevatedButton(
                                   onPressed: () {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                          builder: (context) =>
-                                              RegisterScreen()),
+                                        builder: (context) => RegisterScreen(),
+                                      ),
                                     );
                                   },
                                   child: Text('Register'),
