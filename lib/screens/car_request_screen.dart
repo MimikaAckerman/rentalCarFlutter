@@ -1,11 +1,13 @@
+import 'dart:convert'; // Para manejar JSON
 import 'package:flutter/material.dart';
 import 'package:signature/signature.dart'; // Paquete para la firma
+import 'package:http/http.dart' as http; // Para la solicitud HTTP
 
 class CarRequestScreen extends StatefulWidget {
   final String carName;
+  final String username; // Recibimos el nombre del usuario al navegar
 
-  // Recibimos el nombre del coche al navegar
-  CarRequestScreen({required this.carName});
+  CarRequestScreen({required this.carName, required this.username});
 
   @override
   _CarRequestScreenState createState() => _CarRequestScreenState();
@@ -38,6 +40,65 @@ class _CarRequestScreenState extends State<CarRequestScreen> {
           _endDate = pickedDate;
         }
       });
+    }
+  }
+
+  // Método para enviar la solicitud de reserva
+  Future<void> _reserveCar() async {
+    if (_startDate == null || _endDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Por favor, seleccione ambas fechas')),
+      );
+      return;
+    }
+
+    // Verificar si hay una firma válida
+    if (_signatureController.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Por favor, firme antes de continuar')),
+      );
+      return;
+    }
+
+    // Obtener la firma como string
+    final signatureData = await _signatureController.toPngBytes();
+    final signatureBase64 = base64Encode(signatureData!);
+
+    // Construir los datos para la solicitud
+    final reservationData = {
+      "nombre": widget.carName,
+      "usuario": widget.username,
+      "firma": signatureBase64,
+      "fecha_reserva":
+          "${_startDate!.year}-${_startDate!.month.toString().padLeft(2, '0')}-${_startDate!.day.toString().padLeft(2, '0')}",
+      "fecha_devolucion":
+          "${_endDate!.year}-${_endDate!.month.toString().padLeft(2, '0')}-${_endDate!.day.toString().padLeft(2, '0')}",
+    };
+
+    final url =
+        Uri.parse('https://api-psc-goland.azurewebsites.net/reservarCoche');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(reservationData),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Reserva realizada con éxito')),
+        );
+        Navigator.pop(context); // Volver al panel
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${response.reasonPhrase}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error de conexión: $e')),
+      );
     }
   }
 
@@ -129,23 +190,7 @@ class _CarRequestScreenState extends State<CarRequestScreen> {
               // Botón de Solicitar
               Center(
                 child: ElevatedButton(
-                  onPressed: () {
-                    if (_startDate == null || _endDate == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Por favor, seleccione ambas fechas'),
-                        ),
-                      );
-                      return;
-                    }
-
-                    // Aquí podrías procesar los datos y enviarlos a un backend
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Solicitud enviada exitosamente'),
-                      ),
-                    );
-                  },
+                  onPressed: _reserveCar,
                   child: Text('Solicitar'),
                 ),
               ),

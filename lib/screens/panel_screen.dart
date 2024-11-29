@@ -1,3 +1,4 @@
+import 'dart:async'; // Para usar Timer
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -13,29 +14,62 @@ class PanelScreen extends StatefulWidget {
 }
 
 class _PanelScreenState extends State<PanelScreen> {
-  List<Map<String, dynamic>> carStatus =
-      []; // Lista para almacenar el estado de los coches
+  List<Map<String, dynamic>> carList = []; // Lista de todos los vehículos
+  List<String> occupiedCars = []; // Lista de nombres de coches ocupados
+  Timer? _timer; // Temporizador para actualización automática
 
   @override
   void initState() {
     super.initState();
-    _fetchCarStatus();
+    _fetchAllCars(); // Cargar todos los vehículos inicialmente
+    _fetchOccupiedCars(); // Cargar los vehículos ocupados
+    _startAutoRefresh(); // Iniciar actualización automática
   }
 
-  Future<void> _fetchCarStatus() async {
+  @override
+  void dispose() {
+    _timer?.cancel(); // Cancelar el temporizador cuando se destruye la pantalla
+    super.dispose();
+  }
+
+  // Iniciar el temporizador para actualizar datos automáticamente
+  void _startAutoRefresh() {
+    _timer = Timer.periodic(Duration(seconds: 10), (timer) {
+      _fetchOccupiedCars();
+    });
+  }
+
+  // Cargar todos los vehículos disponibles (simulado o desde una API)
+  Future<void> _fetchAllCars() async {
+    // Aquí podrías conectar a una API para obtener todos los vehículos
+    setState(() {
+      carList = [
+        {"nombre": "Opel Corsa 2131MJG", "imagen": "assets/opel_corsa.jpg"},
+        {
+          "nombre": "Nissan Juke 9843MNZ",
+          "imagen": "assets/coche_deportivo.jpg"
+        },
+        // Agregar más vehículos aquí si es necesario
+      ];
+    });
+  }
+
+  // Obtener los coches ocupados
+  Future<void> _fetchOccupiedCars() async {
     final url =
-        Uri.parse('https://api-psc-goland.azurewebsites.net/availableCard');
+        Uri.parse('https://api-psc-goland.azurewebsites.net/vehiculosOcupados');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
         setState(() {
-          carStatus =
-              List<Map<String, dynamic>>.from(jsonDecode(response.body));
+          occupiedCars = data.map((car) => car['nombre'].toString()).toList();
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Error al obtener datos: ${response.statusCode}')),
+              content: Text(
+                  'Error al obtener coches ocupados: ${response.statusCode}')),
         );
       }
     } catch (e) {
@@ -45,10 +79,10 @@ class _PanelScreenState extends State<PanelScreen> {
     }
   }
 
-  Widget _buildCarCard(String carName, String imagePath, String status) {
-    // Determinar colores y efectos según el estado
-    final isAvailable = status == 'libre';
-    final color = isAvailable ? Colors.green : Colors.red.withOpacity(0.5);
+  Widget _buildCarCard(Map<String, dynamic> car) {
+    final carName = car['nombre'];
+    final imagePath = car['imagen'];
+    final isOccupied = occupiedCars.contains(carName);
 
     return Card(
       elevation: 6,
@@ -60,8 +94,7 @@ class _PanelScreenState extends State<PanelScreen> {
         children: [
           // Imagen del coche
           Opacity(
-            opacity:
-                isAvailable ? 1.0 : 0.3, // Imagen borrosa si no está disponible
+            opacity: isOccupied ? 0.5 : 1.0, // Imagen borrosa si está ocupado
             child: ClipRRect(
               borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
               child: Image.asset(
@@ -91,11 +124,11 @@ class _PanelScreenState extends State<PanelScreen> {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: color,
+                    color: isOccupied ? Colors.grey : Colors.green,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    isAvailable ? 'Disponible' : 'No Disponible',
+                    isOccupied ? 'Ocupado' : 'Disponible',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -104,18 +137,23 @@ class _PanelScreenState extends State<PanelScreen> {
                 ),
                 // Botón Reservar
                 ElevatedButton(
-                  onPressed: isAvailable
-                      ? () {
+                  onPressed: isOccupied
+                      ? null // Deshabilitar el botón si está ocupado
+                      : () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) =>
-                                  CarRequestScreen(carName: carName),
+                              builder: (context) => CarRequestScreen(
+                                carName: carName,
+                                username: widget.username,
+                              ),
                             ),
                           );
-                        }
-                      : null, // Deshabilitar el botón si no está disponible
+                        },
                   child: Text('Reservar'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isOccupied ? Colors.grey : Colors.blue,
+                  ),
                 ),
               ],
             ),
@@ -133,26 +171,10 @@ class _PanelScreenState extends State<PanelScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: carStatus.isEmpty
+        child: carList.isEmpty
             ? Center(child: CircularProgressIndicator()) // Indicador de carga
             : ListView(
-                children: carStatus.map((car) {
-                  // Mapear coches con su estado
-                  if (car['nombre'] == 'Opel Corsa 2131MJG') {
-                    return _buildCarCard(
-                      'Opel Corsa 2023',
-                      'assets/opel_corsa.jpg',
-                      car['status'],
-                    );
-                  } else if (car['nombre'] == 'Nissan Juke 9843MNZ') {
-                    return _buildCarCard(
-                      'Coche Deportivo',
-                      'assets/coche_deportivo.jpg',
-                      car['status'],
-                    );
-                  }
-                  return SizedBox.shrink(); // Ignorar coches no mapeados
-                }).toList(),
+                children: carList.map((car) => _buildCarCard(car)).toList(),
               ),
       ),
     );
