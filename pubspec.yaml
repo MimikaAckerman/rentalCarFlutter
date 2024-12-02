@@ -1,6 +1,6 @@
 name: car_rental_app
 description: "A new Flutter project."
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 version: 1.0.0+1
 
@@ -12,10 +12,13 @@ dependencies:
     sdk: flutter
   shared_preferences: ^2.1.0
   cupertino_icons: ^1.0.8
-  http: ^1.1.0
+  http: ^0.15.0
   cached_network_image: ^3.2.3
   signature: ^5.5.0
- 
+  image_picker: ^0.8.7
+  collection: ^1.17.0
+  universal_io: ^2.0.4
+  universal_platform: ^1.0.0
 
 dev_dependencies:
   flutter_test:

@@ -2,9 +2,11 @@ import 'dart:async'; // Para usar Timer
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'car_request_screen.dart'; // Importar la pantalla del formulario
-import 'change_password_screen.dart'; // Importar pantalla de cambiar contraseña
-import 'login_screen.dart'; // Importar pantalla de login
+import 'car_request_screen.dart';
+import 'return_car_screen.dart';
+import 'change_password_screen.dart';
+import 'login_screen.dart';
+import 'package:collection/collection.dart';
 
 class PanelScreen extends StatefulWidget {
   final String username;
@@ -17,72 +19,84 @@ class PanelScreen extends StatefulWidget {
 
 class _PanelScreenState extends State<PanelScreen> {
   List<Map<String, dynamic>> carList = []; // Lista de todos los vehículos
-  List<String> occupiedCars = []; // Lista de nombres de coches ocupados
+  List<Map<String, dynamic>> occupiedCars = []; // Lista de coches ocupados
   Timer? _timer; // Temporizador para actualización automática
+  bool _navigatedToReturnScreen =
+      false; // Controlar si ya navegamos a ReturnCarScreen
 
   @override
   void initState() {
     super.initState();
-    _fetchAllCars(); // Cargar todos los vehículos inicialmente
-    _fetchOccupiedCars(); // Cargar los vehículos ocupados
-    _startAutoRefresh(); // Iniciar actualización automática
+    _fetchAllCars(); // Inicializar vehículos disponibles
+    _fetchOccupiedCars(); // Inicializar vehículos ocupados
+    _startAutoRefresh(); // Activar auto-refresh
   }
 
   @override
   void dispose() {
-    _timer?.cancel(); // Cancelar el temporizador cuando se destruye la pantalla
+    _timer?.cancel(); // Cancelar temporizador al salir
     super.dispose();
   }
 
-  // Iniciar el temporizador para actualizar datos automáticamente
+  // Iniciar temporizador para actualizar datos
   void _startAutoRefresh() {
     _timer = Timer.periodic(Duration(seconds: 10), (timer) {
-      _fetchOccupiedCars();
+      _fetchOccupiedCars(); // Actualizar coches ocupados
     });
   }
 
-  // Cargar todos los vehículos disponibles (simulado o desde una API)
+  // Cargar todos los vehículos disponibles
   Future<void> _fetchAllCars() async {
-    try {
-      // Aquí podrías conectar a una API para obtener todos los vehículos
-      setState(() {
-        carList = [
-          {"nombre": "Opel Corsa 2131MJG", "imagen": "assets/opel_corsa.jpg"},
-          {
-            "nombre": "Nissan Juke 9843MNZ",
-            "imagen": "assets/coche_deportivo.jpg"
-          },
-          // Agregar más vehículos aquí si es necesario
-        ];
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al cargar la lista de vehículos: $e')),
-      );
-      setState(() {
-        carList = []; // Evitamos que carList sea null
-      });
-    }
+    setState(() {
+      carList = [
+        {"nombre": "Opel Corsa 2131MJG", "imagen": "assets/opel_corsa.jpg"},
+        {
+          "nombre": "Nissan Juke 9843MNZ",
+          "imagen": "assets/coche_deportivo.jpg"
+        },
+        // Agregar más vehículos aquí si es necesario
+      ];
+    });
   }
 
-  // Obtener los coches ocupados
+  // Obtener coches ocupados y verificar si el usuario tiene uno reservado
   Future<void> _fetchOccupiedCars() async {
     final url =
         Uri.parse('https://api-psc-goland.azurewebsites.net/vehiculosOcupados');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
-        final body = response.body;
-        if (body.isNotEmpty) {
-          final List<dynamic> data = jsonDecode(body);
+        final List<dynamic> data = jsonDecode(response.body);
+        final List<Map<String, dynamic>> newOccupiedCars =
+            List<Map<String, dynamic>>.from(data);
+
+        // Actualizar solo si hay cambios en los datos
+        if (!const DeepCollectionEquality()
+            .equals(occupiedCars, newOccupiedCars)) {
           setState(() {
-            occupiedCars = data.map((car) => car['nombre'].toString()).toList();
+            occupiedCars = newOccupiedCars;
           });
-        } else {
-          setState(() {
-            occupiedCars =
-                []; // Si el cuerpo está vacío, asumimos que no hay coches ocupados
-          });
+        }
+
+        // Verificar si el usuario tiene un vehículo reservado
+        if (!_navigatedToReturnScreen) {
+          final userCar = occupiedCars.firstWhere(
+            (car) => car['usuario'] == widget.username,
+            orElse: () => {}, //devuelve un mapa vacio
+          );
+
+          if (userCar.isNotEmpty) {
+            _navigatedToReturnScreen = true; // Prevenir navegación múltiple
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ReturnCarScreen(
+                  carName: userCar['nombre'],
+                  username: widget.username,
+                ),
+              ),
+            );
+          }
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -95,16 +109,14 @@ class _PanelScreenState extends State<PanelScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error de conexión: $e')),
       );
-      setState(() {
-        occupiedCars = []; // Evitamos que occupiedCars sea null
-      });
     }
   }
 
   Widget _buildCarCard(Map<String, dynamic> car) {
     final carName = car['nombre'];
     final imagePath = car['imagen'];
-    final isOccupied = occupiedCars.contains(carName);
+    final isOccupied =
+        occupiedCars.any((occupiedCar) => occupiedCar['nombre'] == carName);
 
     return Card(
       elevation: 6,
@@ -116,7 +128,7 @@ class _PanelScreenState extends State<PanelScreen> {
         children: [
           // Imagen del coche
           Opacity(
-            opacity: isOccupied ? 0.5 : 1.0, // Imagen borrosa si está ocupado
+            opacity: isOccupied ? 0.5 : 1.0,
             child: ClipRRect(
               borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
               child: Image.asset(
@@ -160,7 +172,7 @@ class _PanelScreenState extends State<PanelScreen> {
                 // Botón Reservar
                 ElevatedButton(
                   onPressed: isOccupied
-                      ? null // Deshabilitar el botón si está ocupado
+                      ? null // Deshabilitar botón si está ocupado
                       : () {
                           Navigator.push(
                             context,
@@ -191,12 +203,10 @@ class _PanelScreenState extends State<PanelScreen> {
       appBar: AppBar(
         title: Text('Panel Principal'),
       ),
-      // Menú lateral
       drawer: Drawer(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Encabezado del menú
             UserAccountsDrawerHeader(
               accountName: Text(widget.username),
               accountEmail: Text('${widget.username}@gmail.com'),
@@ -208,7 +218,6 @@ class _PanelScreenState extends State<PanelScreen> {
                 ),
               ),
             ),
-            // Opción para cambiar contraseña
             ListTile(
               leading: Icon(Icons.lock),
               title: Text('Change Password'),
@@ -222,7 +231,6 @@ class _PanelScreenState extends State<PanelScreen> {
                 );
               },
             ),
-            // Opción para cerrar sesión
             ListTile(
               leading: Icon(Icons.exit_to_app),
               title: Text('Logout'),
@@ -239,7 +247,7 @@ class _PanelScreenState extends State<PanelScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: carList.isEmpty
-            ? Center(child: CircularProgressIndicator()) // Indicador de carga
+            ? Center(child: CircularProgressIndicator())
             : ListView(
                 children: carList.map((car) => _buildCarCard(car)).toList(),
               ),
