@@ -133,6 +133,7 @@ class _ReturnCarScreenState extends State<ReturnCarScreen> {
       appBar: AppBar(
         title: Text('Devolución del Vehículo'),
       ),
+      backgroundColor: Colors.blueGrey[900], // Azul oscuro
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
@@ -141,20 +142,38 @@ class _ReturnCarScreenState extends State<ReturnCarScreen> {
             children: [
               Text(
                 'Vehículo: ${widget.carName}',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white, // Cambiar texto a blanco para contraste
+                ),
               ),
               SizedBox(height: 16),
               Text(
                 'Usuario: ${widget.username}',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white, // Cambiar texto a blanco
+                ),
               ),
               SizedBox(height: 16),
               TextField(
                 controller: _commentsController,
                 decoration: InputDecoration(
                   labelText: 'Comentarios sobre el estado del vehículo',
+                  labelStyle: TextStyle(color: Colors.white), // Etiqueta blanca
                   border: OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white), // Borde blanco
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                        color: const Color.fromARGB(
+                            255, 149, 191, 226)), // Borde azul
+                  ),
                 ),
+                style: TextStyle(color: Colors.white), // Texto blanco
                 maxLines: 5,
               ),
               SizedBox(height: 16),
@@ -183,8 +202,9 @@ class _ReturnCarScreenState extends State<ReturnCarScreen> {
                     if (_commentsController.text.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                            content: Text(
-                                'Por favor, ingresa comentarios antes de continuar.')),
+                          content: Text(
+                              'Por favor, ingresa comentarios antes de continuar.'),
+                        ),
                       );
                       return;
                     }
