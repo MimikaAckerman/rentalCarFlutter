@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'car_request_screen.dart'; // Importar la pantalla del formulario
+import 'change_password_screen.dart'; // Importar pantalla de cambiar contraseña
+import 'login_screen.dart'; // Importar pantalla de login
 
 class PanelScreen extends StatefulWidget {
   final String username;
@@ -41,17 +43,26 @@ class _PanelScreenState extends State<PanelScreen> {
 
   // Cargar todos los vehículos disponibles (simulado o desde una API)
   Future<void> _fetchAllCars() async {
-    // Aquí podrías conectar a una API para obtener todos los vehículos
-    setState(() {
-      carList = [
-        {"nombre": "Opel Corsa 2131MJG", "imagen": "assets/opel_corsa.jpg"},
-        {
-          "nombre": "Nissan Juke 9843MNZ",
-          "imagen": "assets/coche_deportivo.jpg"
-        },
-        // Agregar más vehículos aquí si es necesario
-      ];
-    });
+    try {
+      // Aquí podrías conectar a una API para obtener todos los vehículos
+      setState(() {
+        carList = [
+          {"nombre": "Opel Corsa 2131MJG", "imagen": "assets/opel_corsa.jpg"},
+          {
+            "nombre": "Nissan Juke 9843MNZ",
+            "imagen": "assets/coche_deportivo.jpg"
+          },
+          // Agregar más vehículos aquí si es necesario
+        ];
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar la lista de vehículos: $e')),
+      );
+      setState(() {
+        carList = []; // Evitamos que carList sea null
+      });
+    }
   }
 
   // Obtener los coches ocupados
@@ -61,10 +72,18 @@ class _PanelScreenState extends State<PanelScreen> {
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        setState(() {
-          occupiedCars = data.map((car) => car['nombre'].toString()).toList();
-        });
+        final body = response.body;
+        if (body.isNotEmpty) {
+          final List<dynamic> data = jsonDecode(body);
+          setState(() {
+            occupiedCars = data.map((car) => car['nombre'].toString()).toList();
+          });
+        } else {
+          setState(() {
+            occupiedCars =
+                []; // Si el cuerpo está vacío, asumimos que no hay coches ocupados
+          });
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -76,6 +95,9 @@ class _PanelScreenState extends State<PanelScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error de conexión: $e')),
       );
+      setState(() {
+        occupiedCars = []; // Evitamos que occupiedCars sea null
+      });
     }
   }
 
@@ -168,6 +190,51 @@ class _PanelScreenState extends State<PanelScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Panel Principal'),
+      ),
+      // Menú lateral
+      drawer: Drawer(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Encabezado del menú
+            UserAccountsDrawerHeader(
+              accountName: Text(widget.username),
+              accountEmail: Text('${widget.username}@gmail.com'),
+              currentAccountPicture: CircleAvatar(
+                backgroundColor: Colors.white,
+                child: Text(
+                  widget.username[0].toUpperCase(),
+                  style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            // Opción para cambiar contraseña
+            ListTile(
+              leading: Icon(Icons.lock),
+              title: Text('Change Password'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        ChangePasswordScreen(username: widget.username),
+                  ),
+                );
+              },
+            ),
+            // Opción para cerrar sesión
+            ListTile(
+              leading: Icon(Icons.exit_to_app),
+              title: Text('Logout'),
+              onTap: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => LoginScreen()),
+                );
+              },
+            ),
+          ],
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
