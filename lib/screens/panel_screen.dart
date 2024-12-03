@@ -208,16 +208,18 @@ class _PanelScreenState extends State<PanelScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             UserAccountsDrawerHeader(
-              accountName: Text(widget.username),
-              accountEmail: Text('${widget.username}@gmail.com'),
-              currentAccountPicture: CircleAvatar(
-                backgroundColor: Colors.white,
-                child: Text(
-                  widget.username[0].toUpperCase(),
-                  style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
+                accountName: Text(widget.username),
+                accountEmail: Text('${widget.username}'),
+                currentAccountPicture: CircleAvatar(
+                  backgroundColor: Colors.white,
+                  child: Text(
+                    widget.username[0].toUpperCase(),
+                    style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
+                  ),
                 ),
-              ),
-            ),
+                decoration: BoxDecoration(
+                  color: const Color.fromARGB(255, 18, 84, 138),
+                )),
             ListTile(
               leading: Icon(Icons.lock),
               title: Text('Change Password'),
