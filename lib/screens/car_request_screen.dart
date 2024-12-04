@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:signature/signature.dart'; // Paquete para la firma
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -14,94 +13,43 @@ class CarRequestScreen extends StatefulWidget {
 }
 
 class _CarRequestScreenState extends State<CarRequestScreen> {
-  DateTime? _startDate;
-  TimeOfDay? _startTime;
-  DateTime? _endDate;
-  TimeOfDay? _endTime;
+  final TextEditingController _fechaInicioController = TextEditingController();
+  final TextEditingController _fechaFinController = TextEditingController();
+  bool _isLoading = false;
 
-  final SignatureController _signatureController = SignatureController(
-    penStrokeWidth: 2,
-    penColor: Colors.black,
-    exportBackgroundColor: Colors.white,
-  );
-
-  // Método para mostrar el calendario y seleccionar una fecha
-  Future<void> _selectDate(BuildContext context, bool isStartDate) async {
-    DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(Duration(days: 365)),
-    );
-
-    if (pickedDate != null) {
-      setState(() {
-        if (isStartDate) {
-          _startDate = pickedDate;
-        } else {
-          _endDate = pickedDate;
-        }
-      });
-    }
-  }
-
-  // Método para seleccionar la hora
-  Future<void> _selectTime(BuildContext context, bool isStartTime) async {
-    TimeOfDay? pickedTime = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-    );
-
-    if (pickedTime != null) {
-      setState(() {
-        if (isStartTime) {
-          _startTime = pickedTime;
-        } else {
-          _endTime = pickedTime;
-        }
-      });
-    }
-  }
-
-  // Comprobar disponibilidad del vehículo
-  Future<bool> _checkAvailability() async {
+  Future<bool> _isReservationValid(
+      DateTime fechaInicio, DateTime fechaFin) async {
     final url =
         Uri.parse('https://api-psc-goland.azurewebsites.net/vehiculosOcupados');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+        final List<dynamic> reservations = jsonDecode(response.body);
 
-        final selectedStartDateTime = DateTime(
-          _startDate!.year,
-          _startDate!.month,
-          _startDate!.day,
-          _startTime!.hour,
-          _startTime!.minute,
-        );
-        final selectedEndDateTime = DateTime(
-          _endDate!.year,
-          _endDate!.month,
-          _endDate!.day,
-          _endTime!.hour,
-          _endTime!.minute,
-        );
+        // Filtrar reservas para el coche actual
+        final carReservations = reservations.where((reservation) {
+          return reservation['nombre'] == widget.carName;
+        }).toList();
 
-        for (var entry in data) {
-          if (entry['nombre'] == widget.carName) {
-            final existingStartDateTime = DateTime.parse(entry['fechaInicio']);
-            final existingEndDateTime = DateTime.parse(entry['fechaFin']);
+        // Verificar si hay solapamiento
+        for (var reservation in carReservations) {
+          DateTime existingStart = DateTime.parse(reservation['fechaInicio']);
+          DateTime existingEnd = DateTime.parse(reservation['fechaFin']);
 
-            // Verificar si hay conflicto de horarios
-            if (selectedStartDateTime.isBefore(existingEndDateTime) &&
-                selectedEndDateTime.isAfter(existingStartDateTime)) {
-              return false; // Conflicto de horarios
-            }
+          // Condición de solapamiento
+          if (!(fechaFin.isBefore(existingStart) ||
+              fechaInicio.isAfter(existingEnd))) {
+            return false; // Reservas se solapan
           }
         }
-        return true; // No hay conflicto
+        return true; // No hay solapamiento
       } else {
-        throw Exception('Error al consultar la disponibilidad');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text('Error al obtener reservas: ${response.statusCode}')),
+        );
+        return false;
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -111,82 +59,59 @@ class _CarRequestScreenState extends State<CarRequestScreen> {
     }
   }
 
-  // Método para enviar la solicitud
-  Future<void> _sendRequest() async {
-    if (_startDate == null ||
-        _endDate == null ||
-        _startTime == null ||
-        _endTime == null) {
+  Future<void> _handleReserve() async {
+    final String fechaInicioText = _fechaInicioController.text;
+    final String fechaFinText = _fechaFinController.text;
+
+    if (fechaInicioText.isEmpty || fechaFinText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Por favor, complete todas las fechas y horas')),
+        SnackBar(content: Text('Por favor, ingresa ambas fechas')),
       );
       return;
     }
 
-    if (_signatureController.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Por favor, firme el documento')),
-      );
-      return;
-    }
-
-    // Verificar disponibilidad
-    bool isAvailable = await _checkAvailability();
-    if (!isAvailable) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                'El vehículo ya está reservado en las fechas y horas seleccionadas.')),
-      );
-      return;
-    }
-
-    // Convertir la firma a base64
-    final signatureBytes = await _signatureController.toPngBytes();
-    if (signatureBytes == null) return;
-    final signatureBase64 = base64Encode(signatureBytes);
-
-    // Construir el cuerpo de la solicitud
-    final requestBody = {
-      "nombre": widget.carName,
-      "usuario": widget.username,
-      "firma": signatureBase64,
-      "fecha_reserva":
-          "${_startDate!.year}-${_startDate!.month.toString().padLeft(2, '0')}-${_startDate!.day.toString().padLeft(2, '0')}",
-      "hora_reserva":
-          "${_startTime!.hour.toString().padLeft(2, '0')}:${_startTime!.minute.toString().padLeft(2, '0')}",
-      "fecha_devolucion":
-          "${_endDate!.year}-${_endDate!.month.toString().padLeft(2, '0')}-${_endDate!.day.toString().padLeft(2, '0')}",
-      "hora_devolucion":
-          "${_endTime!.hour.toString().padLeft(2, '0')}:${_endTime!.minute.toString().padLeft(2, '0')}",
-    };
-
-    // Enviar la solicitud al servidor
-    final url =
-        Uri.parse('https://api-psc-goland.azurewebsites.net/reservarCoche');
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(requestBody),
-      );
+      DateTime fechaInicio = DateTime.parse(fechaInicioText);
+      DateTime fechaFin = DateTime.parse(fechaFinText);
 
-      if (response.statusCode == 200) {
+      if (fechaInicio.isAfter(fechaFin)) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Solicitud enviada exitosamente')),
+          SnackBar(
+              content: Text(
+                  'La fecha de inicio debe ser antes que la fecha de fin')),
         );
-        Navigator.pop(context); // Volver al panel principal
+        return;
+      }
+
+      setState(() {
+        _isLoading = true;
+      });
+
+      // Verificar si la reserva es válida
+      bool isValid = await _isReservationValid(fechaInicio, fechaFin);
+
+      if (isValid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Reserva válida. Procesando...')),
+        );
+        // Aquí puedes enviar la solicitud de reserva al servidor
+        // TODO: Añade lógica para realizar la reserva
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content:
-                  Text('Error al enviar la solicitud: ${response.statusCode}')),
+              content: Text('Este coche ya está reservado en este horario')),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error de conexión: $e')),
+        SnackBar(
+            content:
+                Text('Formato de fecha inválido. Usa YYYY-MM-DD HH:MM:SS')),
       );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -194,130 +119,34 @@ class _CarRequestScreenState extends State<CarRequestScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Solicitud - ${widget.carName}'),
+        title: Text('Reservar ${widget.carName}'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Selección de Fecha y Hora de Solicitud
-              Text(
-                'Fecha y Hora de Solicitud',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        child: Column(
+          children: [
+            TextField(
+              controller: _fechaInicioController,
+              decoration: InputDecoration(
+                labelText: 'Fecha Inicio (YYYY-MM-DD HH:MM:SS)',
+                border: OutlineInputBorder(),
               ),
-              SizedBox(height: 8),
-              GestureDetector(
-                onTap: () => _selectDate(context, true),
-                child: Container(
-                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    _startDate == null
-                        ? 'Seleccione la fecha de solicitud'
-                        : '${_startDate!.day}/${_startDate!.month}/${_startDate!.year}',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
+            ),
+            SizedBox(height: 16),
+            TextField(
+              controller: _fechaFinController,
+              decoration: InputDecoration(
+                labelText: 'Fecha Fin (YYYY-MM-DD HH:MM:SS)',
+                border: OutlineInputBorder(),
               ),
-              SizedBox(height: 8),
-              GestureDetector(
-                onTap: () => _selectTime(context, true),
-                child: Container(
-                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    _startTime == null
-                        ? 'Seleccione la hora de solicitud'
-                        : '${_startTime!.hour.toString().padLeft(2, '0')}:${_startTime!.minute.toString().padLeft(2, '0')}',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-              ),
-              SizedBox(height: 16),
-
-              // Selección de Fecha y Hora de Devolución
-              Text(
-                'Fecha y Hora de Devolución',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 8),
-              GestureDetector(
-                onTap: () => _selectDate(context, false),
-                child: Container(
-                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    _endDate == null
-                        ? 'Seleccione la fecha de devolución'
-                        : '${_endDate!.day}/${_endDate!.month}/${_endDate!.year}',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-              ),
-              SizedBox(height: 8),
-              GestureDetector(
-                onTap: () => _selectTime(context, false),
-                child: Container(
-                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    _endTime == null
-                        ? 'Seleccione la hora de devolución'
-                        : '${_endTime!.hour.toString().padLeft(2, '0')}:${_endTime!.minute.toString().padLeft(2, '0')}',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-              ),
-              SizedBox(height: 16),
-
-              // Campo de Firma
-              Text(
-                'Firma',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 8),
-              Container(
-                height: 150,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Signature(
-                  controller: _signatureController,
-                  backgroundColor: Colors.white,
-                ),
-              ),
-              SizedBox(height: 8),
-              TextButton(
-                onPressed: () => _signatureController.clear(),
-                child: Text('Limpiar Firma'),
-              ),
-
-              SizedBox(height: 24),
-
-              // Botón de Solicitar
-              Center(
-                child: ElevatedButton(
-                  onPressed: _sendRequest,
-                  child: Text('Solicitar'),
-                ),
-              ),
-            ],
-          ),
+            ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _isLoading ? null : _handleReserve,
+              child:
+                  _isLoading ? CircularProgressIndicator() : Text('Reservar'),
+            ),
+          ],
         ),
       ),
     );
