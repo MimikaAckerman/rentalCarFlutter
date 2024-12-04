@@ -7,7 +7,6 @@ class CarRequestScreen extends StatefulWidget {
   final String carName;
   final String username;
 
-  // Recibimos el nombre del coche y el usuario al navegar
   CarRequestScreen({required this.carName, required this.username});
 
   @override
@@ -32,8 +31,7 @@ class _CarRequestScreenState extends State<CarRequestScreen> {
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
-      lastDate:
-          DateTime.now().add(Duration(days: 365)), // Hasta un año en el futuro
+      lastDate: DateTime.now().add(Duration(days: 365)),
     );
 
     if (pickedDate != null) {
@@ -65,6 +63,54 @@ class _CarRequestScreenState extends State<CarRequestScreen> {
     }
   }
 
+  // Comprobar disponibilidad del vehículo
+  Future<bool> _checkAvailability() async {
+    final url =
+        Uri.parse('https://api-psc-goland.azurewebsites.net/vehiculosOcupados');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+
+        final selectedStartDateTime = DateTime(
+          _startDate!.year,
+          _startDate!.month,
+          _startDate!.day,
+          _startTime!.hour,
+          _startTime!.minute,
+        );
+        final selectedEndDateTime = DateTime(
+          _endDate!.year,
+          _endDate!.month,
+          _endDate!.day,
+          _endTime!.hour,
+          _endTime!.minute,
+        );
+
+        for (var entry in data) {
+          if (entry['nombre'] == widget.carName) {
+            final existingStartDateTime = DateTime.parse(entry['fechaInicio']);
+            final existingEndDateTime = DateTime.parse(entry['fechaFin']);
+
+            // Verificar si hay conflicto de horarios
+            if (selectedStartDateTime.isBefore(existingEndDateTime) &&
+                selectedEndDateTime.isAfter(existingStartDateTime)) {
+              return false; // Conflicto de horarios
+            }
+          }
+        }
+        return true; // No hay conflicto
+      } else {
+        throw Exception('Error al consultar la disponibilidad');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error de conexión: $e')),
+      );
+      return false;
+    }
+  }
+
   // Método para enviar la solicitud
   Future<void> _sendRequest() async {
     if (_startDate == null ||
@@ -80,6 +126,17 @@ class _CarRequestScreenState extends State<CarRequestScreen> {
     if (_signatureController.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Por favor, firme el documento')),
+      );
+      return;
+    }
+
+    // Verificar disponibilidad
+    bool isAvailable = await _checkAvailability();
+    if (!isAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                'El vehículo ya está reservado en las fechas y horas seleccionadas.')),
       );
       return;
     }

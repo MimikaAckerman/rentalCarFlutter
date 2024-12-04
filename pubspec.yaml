@@ -15,15 +15,16 @@ dependencies:
   http: ^1.2.2
   cached_network_image: ^3.2.3
   signature: ^5.5.0
-  image_picker: ^0.8.7
+  image_picker: ^1.1.2
   collection: ^1.17.0
   universal_io: ^2.0.4
   universal_platform: ^1.0.0
+  firebase_core: ^3.8.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^4.0.0
+  flutter_lints: ^5.0.0
 
 flutter:
   uses-material-design: true

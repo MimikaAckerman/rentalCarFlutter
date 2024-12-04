@@ -16,7 +16,14 @@ class ReturnCarScreen extends StatefulWidget {
 }
 
 class _ReturnCarScreenState extends State<ReturnCarScreen> {
-  final TextEditingController _commentsController = TextEditingController();
+  final TextEditingController _reasonController = TextEditingController();
+  final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _kmController = TextEditingController();
+  final TextEditingController _parkingController = TextEditingController();
+  final TextEditingController _vehicleConditionController =
+      TextEditingController();
+  final TextEditingController _fuelLevelController = TextEditingController();
+
   XFile? _selectedFile;
 
   Future<void> _pickFile() async {
@@ -28,12 +35,11 @@ class _ReturnCarScreenState extends State<ReturnCarScreen> {
         setState(() {
           _selectedFile = pickedFile;
         });
-        print('Archivo seleccionado: ${_selectedFile!.name}');
-      } else {
-        print('No se seleccionó ningún archivo.');
       }
     } catch (e) {
-      print('Error al seleccionar archivo: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al seleccionar archivo: $e')),
+      );
     }
   }
 
@@ -42,14 +48,20 @@ class _ReturnCarScreenState extends State<ReturnCarScreen> {
         Uri.parse('https://api-psc-goland.azurewebsites.net/entregaCoche');
 
     try {
+      // Concatenar todos los campos en un solo string separados por comas
+      String comentarios = [
+        "Motivo de utilización: ${_reasonController.text}",
+        "Lugar de desplazamiento: ${_locationController.text}",
+        "Km de devolución: ${_kmController.text}",
+        "Lugar de estacionamiento: ${_parkingController.text}",
+        "Situación actual del vehículo: ${_vehicleConditionController.text}",
+        "Nivel de depósito: ${_fuelLevelController.text}",
+      ].join(', ');
+
       Map<String, String> fields = {
         'usuario': widget.username,
         'nombre': widget.carName,
-        'comentarios': _commentsController.text,
-      };
-
-      Map<String, String> headers = {
-        'Content-Type': 'application/json',
+        'comentarios': comentarios,
       };
 
       if (_selectedFile != null) {
@@ -103,7 +115,7 @@ class _ReturnCarScreenState extends State<ReturnCarScreen> {
       } else {
         final response = await http.put(
           url,
-          headers: headers,
+          headers: {'Content-Type': 'application/json'},
           body: jsonEncode(fields),
         );
 
@@ -133,7 +145,6 @@ class _ReturnCarScreenState extends State<ReturnCarScreen> {
       appBar: AppBar(
         title: Text('Devolución del Vehículo'),
       ),
-      backgroundColor: Colors.blueGrey[900], // Azul oscuro
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
@@ -142,40 +153,26 @@ class _ReturnCarScreenState extends State<ReturnCarScreen> {
             children: [
               Text(
                 'Vehículo: ${widget.carName}',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white, // Cambiar texto a blanco para contraste
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 16),
               Text(
                 'Usuario: ${widget.username}',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white, // Cambiar texto a blanco
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 16),
-              TextField(
-                controller: _commentsController,
-                decoration: InputDecoration(
-                  labelText: 'Comentarios sobre el estado del vehículo',
-                  labelStyle: TextStyle(color: Colors.white), // Etiqueta blanca
-                  border: OutlineInputBorder(),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white), // Borde blanco
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                        color: const Color.fromARGB(
-                            255, 149, 191, 226)), // Borde azul
-                  ),
-                ),
-                style: TextStyle(color: Colors.white), // Texto blanco
-                maxLines: 5,
-              ),
+              _buildTextField(_reasonController, 'Motivo de utilización'),
+              SizedBox(height: 16),
+              _buildTextField(_locationController, 'Lugar de desplazamiento'),
+              SizedBox(height: 16),
+              _buildTextField(_kmController, 'Km de devolución'),
+              SizedBox(height: 16),
+              _buildTextField(_parkingController, 'Lugar de estacionamiento'),
+              SizedBox(height: 16),
+              _buildTextField(
+                  _vehicleConditionController, 'Situación actual del vehículo'),
+              SizedBox(height: 16),
+              _buildTextField(_fuelLevelController, 'Nivel de depósito'),
               SizedBox(height: 16),
               Row(
                 children: [
@@ -199,12 +196,16 @@ class _ReturnCarScreenState extends State<ReturnCarScreen> {
               Center(
                 child: ElevatedButton(
                   onPressed: () {
-                    if (_commentsController.text.isEmpty) {
+                    if (_reasonController.text.isEmpty ||
+                        _locationController.text.isEmpty ||
+                        _kmController.text.isEmpty ||
+                        _parkingController.text.isEmpty ||
+                        _vehicleConditionController.text.isEmpty ||
+                        _fuelLevelController.text.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(
-                              'Por favor, ingresa comentarios antes de continuar.'),
-                        ),
+                            content: Text(
+                                'Por favor, completa todos los campos antes de continuar.')),
                       );
                       return;
                     }
@@ -217,6 +218,16 @@ class _ReturnCarScreenState extends State<ReturnCarScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(TextEditingController controller, String label) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(),
       ),
     );
   }

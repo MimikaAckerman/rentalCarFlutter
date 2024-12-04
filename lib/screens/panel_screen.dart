@@ -82,7 +82,7 @@ class _PanelScreenState extends State<PanelScreen> {
         if (!_navigatedToReturnScreen) {
           final userCar = occupiedCars.firstWhere(
             (car) => car['usuario'] == widget.username,
-            orElse: () => {}, //devuelve un mapa vacio
+            orElse: () => {}, // Devuelve un mapa vacío
           );
 
           if (userCar.isNotEmpty) {
@@ -115,8 +115,19 @@ class _PanelScreenState extends State<PanelScreen> {
   Widget _buildCarCard(Map<String, dynamic> car) {
     final carName = car['nombre'];
     final imagePath = car['imagen'];
-    final isOccupied =
-        occupiedCars.any((occupiedCar) => occupiedCar['nombre'] == carName);
+
+    // Obtener las reservas del coche
+    final carReservations = occupiedCars.where((occupiedCar) {
+      return occupiedCar['nombre'] == carName;
+    }).toList();
+
+    // Comprobar si el coche está actualmente ocupado
+    final isOccupiedNow = carReservations.any((reservation) {
+      DateTime now = DateTime.now();
+      DateTime fechaInicio = DateTime.parse(reservation['fechaInicio']);
+      DateTime fechaFin = DateTime.parse(reservation['fechaFin']);
+      return now.isAfter(fechaInicio) && now.isBefore(fechaFin);
+    });
 
     return Card(
       elevation: 6,
@@ -128,7 +139,7 @@ class _PanelScreenState extends State<PanelScreen> {
         children: [
           // Imagen del coche
           Opacity(
-            opacity: isOccupied ? 0.5 : 1.0,
+            opacity: isOccupiedNow ? 0.5 : 1.0,
             child: ClipRRect(
               borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
               child: Image.asset(
@@ -147,6 +158,23 @@ class _PanelScreenState extends State<PanelScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
+          // Fechas y horas ocupadas (si aplica)
+          if (carReservations.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: carReservations.map((reservation) {
+                  DateTime fechaInicio =
+                      DateTime.parse(reservation['fechaInicio']);
+                  DateTime fechaFin = DateTime.parse(reservation['fechaFin']);
+                  return Text(
+                    'Reservado: ${fechaInicio.toLocal()} - ${fechaFin.toLocal()}',
+                    style: TextStyle(fontSize: 14, color: Colors.red),
+                  );
+                }).toList(),
+              ),
+            ),
           // Botón Reservar e Indicador de estado
           Padding(
             padding:
@@ -158,11 +186,11 @@ class _PanelScreenState extends State<PanelScreen> {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: isOccupied ? Colors.grey : Colors.green,
+                    color: isOccupiedNow ? Colors.grey : Colors.green,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    isOccupied ? 'Ocupado' : 'Disponible',
+                    isOccupiedNow ? 'Ocupado' : 'Disponible',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -171,7 +199,7 @@ class _PanelScreenState extends State<PanelScreen> {
                 ),
                 // Botón Reservar
                 ElevatedButton(
-                  onPressed: isOccupied
+                  onPressed: isOccupiedNow
                       ? null // Deshabilitar botón si está ocupado
                       : () {
                           Navigator.push(
@@ -186,7 +214,7 @@ class _PanelScreenState extends State<PanelScreen> {
                         },
                   child: Text('Reservar'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isOccupied ? Colors.grey : Colors.blue,
+                    backgroundColor: isOccupiedNow ? Colors.grey : Colors.blue,
                   ),
                 ),
               ],
