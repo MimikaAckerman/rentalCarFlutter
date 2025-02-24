@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 class ChangePasswordScreen extends StatefulWidget {
   final String username; // Recibimos el username desde el Panel
 
-  ChangePasswordScreen({required this.username});
+  const ChangePasswordScreen({super.key, required this.username});
 
   @override
   _ChangePasswordScreenState createState() => _ChangePasswordScreenState();

@@ -8,10 +8,12 @@ import 'change_password_screen.dart';
 import 'login_screen.dart';
 import 'package:collection/collection.dart';
 
+import '/screens/screen_coche_estacionado.dart';
+
 class PanelScreen extends StatefulWidget {
   final String username;
 
-  PanelScreen({required this.username});
+  const PanelScreen({super.key, required this.username});
 
   @override
   _PanelScreenState createState() => _PanelScreenState();
@@ -63,10 +65,21 @@ class _PanelScreenState extends State<PanelScreen> {
   Future<void> _fetchOccupiedCars() async {
     final url =
         Uri.parse('https://api-psc-goland.azurewebsites.net/vehiculosOcupados');
+
     try {
       final response = await http.get(url);
+
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
+
+        // Si el array está vacío, limpiar occupiedCars pero NO mostrar mensaje
+        if (data.isEmpty) {
+          setState(() {
+            occupiedCars = [];
+          });
+          return; // Salimos de la función sin mostrar ningún mensaje
+        }
+
         final List<Map<String, dynamic>> newOccupiedCars =
             List<Map<String, dynamic>>.from(data);
 
@@ -212,10 +225,10 @@ class _PanelScreenState extends State<PanelScreen> {
                             ),
                           );
                         },
-                  child: Text('Reservar'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isOccupiedNow ? Colors.grey : Colors.blue,
                   ),
+                  child: Text('Reservar'),
                 ),
               ],
             ),
@@ -237,7 +250,7 @@ class _PanelScreenState extends State<PanelScreen> {
           children: [
             UserAccountsDrawerHeader(
                 accountName: Text(widget.username),
-                accountEmail: Text('${widget.username}'),
+                accountEmail: Text(widget.username),
                 currentAccountPicture: CircleAvatar(
                   backgroundColor: Colors.white,
                   child: Text(
@@ -248,6 +261,20 @@ class _PanelScreenState extends State<PanelScreen> {
                 decoration: BoxDecoration(
                   color: const Color.fromARGB(255, 18, 84, 138),
                 )),
+            ListTile(
+              leading: Icon(Icons
+                  .local_parking), // Icono más adecuado para estacionamiento
+              title: Text('Visualizar Coche Estacionado'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        ScreenCocheEstacionado(), // Cambia aquí la pantalla de destino
+                  ),
+                );
+              },
+            ),
             ListTile(
               leading: Icon(Icons.lock),
               title: Text('Change Password'),

@@ -6,6 +6,8 @@ import 'panel_screen.dart'; // Importa tu pantalla de panel principal
 import 'register_screen.dart'; // Importa la pantalla de registro
 
 class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
   @override
   _LoginScreenState createState() => _LoginScreenState();
 }
